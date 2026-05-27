@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Monte Carlo Simulator — EUR/USD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#c8d0de;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:16px;max-width:1120px;margin:0 auto}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{background:#181c27;border:1px solid #252d40;border-radius:6px;padding:3px 10px;font-size:11px;color:#7a869e;font-weight:500}
+.tag.g{background:#1b2820;border-color:#2d4f38;color:#4caf7d}
+.tag.a{background:#251f10;border-color:#4a3a10;color:#d4a020}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+.two-charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:560px){.two-charts{grid-template-columns:1fr}}
+.stats5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+@media(max-width:740px){.stats5{grid-template-columns:repeat(3,1fr)}}
+
+.panel{background:#181c27;border:1px solid #222840;border-radius:12px;padding:18px 20px}
+.ptitle{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#4a5470;margin-bottom:16px}
+
+/* Lot sizer hero */
+.lot-hero{background:linear-gradient(135deg,#0d1f14 0%,#0f1a1a 100%);border:1px solid #1e3a25;border-radius:12px;padding:20px;margin-bottom:14px;text-align:center}
+.lot-hero-eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#3ecf8e;margin-bottom:4px}
+.lot-hero-lot{font-size:64px;font-weight:700;color:#3ecf8e;line-height:1;font-variant-numeric:tabular-nums}
+.lot-hero-sub{font-size:13px;color:#7a869e;margin-top:4px}
+.lot-hero-range{display:flex;justify-content:center;gap:24px;margin-top:12px}
+.lhb{background:#0f1a15;border:1px solid #1e3a25;border-radius:8px;padding:10px 20px;text-align:center}
+.lhb-label{font-size:10px;color:#4a5470;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.lhb-lot{font-size:18px;font-weight:600;color:#c8d0de;font-variant-numeric:tabular-nums}
+.lhb-net{font-size:11px;color:#7a869e;margin-top:2px}
+.oor{background:rgba(240,96,112,.1);border:1px solid rgba(240,96,112,.3);border-radius:8px;padding:10px 14px;font-size:12px;color:#f0a0a8;margin-top:10px;display:none}
+
+/* Controls */
+.ctrl{margin-bottom:13px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ctrl-name{font-size:12px;color:#7a869e}
+.ctrl-val{font-size:14px;font-weight:700;color:#c8d0de;font-variant-numeric:tabular-nums}
+.ctrl-val.g{color:#3ecf8e}.ctrl-val.r{color:#f06070}.ctrl-val.a{color:#f5a623}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;border:none;outline:none;cursor:pointer;background:linear-gradient(to right,#3ecf8e var(--p,50%),#252d40 var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 2.5px #3ecf8e;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 2.5px #3ecf8e;border:none;cursor:pointer}
+.range-ends{display:flex;justify-content:space-between;font-size:10px;color:#4a5470;margin-top:4px}
+
+/* RR slider special styling */
+.rr-track{background:#181c27;border:1px solid #252d40;border-radius:10px;padding:12px 14px;margin-bottom:13px}
+.rr-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rr-label{font-size:12px;color:#7a869e}
+.rr-val-wrap{display:flex;align-items:baseline;gap:6px}
+.rr-val{font-size:20px;font-weight:700;color:#3ecf8e;font-variant-numeric:tabular-nums}
+.rr-sub{font-size:11px;color:#7a869e}
+.rr-pips{font-size:11px;color:#4a5470;margin-top:6px}
+
+/* Pip display */
+.pip-display{display:flex;align-items:baseline;justify-content:center;gap:6px;margin-bottom:14px}
+.pip-num{font-size:72px;font-weight:700;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+.pip-unit{font-size:22px;color:#7a869e}
+
+/* Info tiles */
+.tiles3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.tile{background:#13161f;border:1px solid #1e2535;border-radius:8px;padding:10px;text-align:center}
+.tile-label{font-size:10px;color:#4a5470;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.tile-val{font-size:16px;font-weight:600;color:#c8d0de;font-variant-numeric:tabular-nums}
+
+/* Badge */
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.bp{background:rgba(62,207,142,.15);color:#3ecf8e;border:1px solid rgba(62,207,142,.3)}
+.bn{background:rgba(240,96,112,.15);color:#f06070;border:1px solid rgba(240,96,112,.3)}
+.bz{background:rgba(122,134,158,.12);color:#7a869e;border:1px solid rgba(122,134,158,.25)}
+
+/* Run button */
+.run-btn{width:100%;padding:13px 0;background:#1e2335;border:1px solid #2a3450;border-radius:8px;color:#c8d0de;font-size:13px;font-weight:500;letter-spacing:.03em;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:8px}
+.run-btn:hover:not(:disabled){background:#1a2a1e;border-color:#3ecf8e;color:#3ecf8e}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Mechanics */
+.mrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1a1e2c}
+.mrow:last-child{border-bottom:none}
+.mk{font-size:11.5px;color:#4a5470}
+.mv{font-size:11.5px;font-weight:500;color:#c8d0de;text-align:right;font-variant-numeric:tabular-nums}
+.mv.g{color:#3ecf8e}.mv.r{color:#f06070}.mv.a{color:#f5a623}
+hr.div{border:none;border-top:1px dashed #252d40;margin:6px 0}
+
+/* Verdict */
+.verdict{border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.75;margin-bottom:12px;display:none}
+.vd{background:rgba(240,96,112,.08);border:1px solid rgba(240,96,112,.3);color:#f0a0a8}
+.vw{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.3);color:#f5d08e}
+.vs{background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.3);color:#8fdfbe}
+
+/* Stat boxes */
+.sbox{background:#181c27;border:1px solid #222840;border-radius:10px;padding:12px 14px}
+.sl2{font-size:10px;color:#4a5470;margin-bottom:5px;line-height:1.4}
+.sv{font-size:21px;font-weight:600;font-variant-numeric:tabular-nums}
+.ss{font-size:10px;color:#4a5470;margin-top:3px}
+.sv.g{color:#3ecf8e}.sv.r{color:#f06070}
+
+/* Chart panels */
+.cpanel{background:#181c27;border:1px solid #222840;border-radius:12px;padding:16px 18px;margin-bottom:12px}
+.cpanel:last-child{margin-bottom:0}
+.ctitle{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#4a5470;margin-bottom:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:#4a5470}
+.ldot{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* Table */
+.ctbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.ctbl th{font-size:10px;font-weight:600;color:#4a5470;text-align:left;padding:4px 8px 9px;border-bottom:1px solid #222840;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.ctbl td{padding:7px 8px;border-bottom:1px solid #1a1e2c;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ctbl tr:last-child td{border-bottom:none}
+.ctbl tr.sel td{background:#1c2232}
+.ctbl tr.sel td:first-child{border-left:2.5px solid #3ecf8e}
+.ct-m{color:#4a5470}
+.ct-g{color:#3ecf8e;font-weight:600}
+.ct-r{color:#f06070;font-weight:600}
+.ct-a{color:#f5a623;font-weight:600}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#181c27}
+::-webkit-scrollbar-thumb{background:#252d40;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tags">
+    <span class="tag">EUR/USD</span>
+    <span class="tag">$1.00/broker-pip/lot · confirmed</span>
+    <span class="tag">1:10 leverage</span>
+    <span class="tag a">Commission $2.50/lot/trade</span>
+    <span class="tag g">Target net $25–$26/trade</span>
+    <span class="tag g">RR 1.00–1.20 · variable</span>
+    <span class="tag">1,000 sims × 1,000 trades</span>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- LEFT — Lot sizer + controls -->
+  <div class="panel">
+    <div class="ptitle">EURUSD Lot Sizer · $1/pip/lot · Target $25.00–$26.00 net win</div>
+
+    <!-- Big pip counter -->
+    <div class="pip-display">
+      <span class="pip-num" id="pipDisplay">28</span>
+      <span class="pip-unit">pips</span>
+    </div>
+
+    <!-- SL slider -->
+    <div class="ctrl" style="margin-bottom:18px">
+      <div class="ctrl-head">
+        <span class="ctrl-name">Stop loss pips</span>
+        <span class="ctrl-val" id="slV">28</span>
+      </div>
+      <input type="range" id="slS" min="20" max="100" step="1" value="28">
+      <div class="range-ends"><span>20 pips</span><span>100 pips</span></div>
+    </div>
+
+    <!-- RR slider -->
+    <div class="rr-track">
+      <div class="rr-head">
+        <span class="rr-label">Risk : Reward ratio</span>
+        <div class="rr-val-wrap">
+          <span class="rr-val" id="rrV">1.00</span>
+          <span class="rr-sub">: 1</span>
+        </div>
+      </div>
+      <input type="range" id="rrS" min="100" max="120" step="1" value="100">
+      <div class="range-ends"><span>1.00:1 (SL = TP)</span><span>1.20:1</span></div>
+      <div class="rr-pips" id="rrPips">TP = 28 pips · same as SL</div>
+    </div>
+
+    <!-- Lot hero -->
+    <div class="lot-hero">
+      <div class="lot-hero-eyebrow">Use this lot size</div>
+      <div class="lot-hero-lot" id="heroLot">—</div>
+      <div class="lot-hero-sub">lots → nets <span id="heroNetMid" style="color:#3ecf8e">—</span></div>
+      <div class="lot-hero-range">
+        <div class="lhb">
+          <div class="lhb-label">Min</div>
+          <div class="lhb-lot" id="heroLotMin">—</div>
+          <div class="lhb-net" id="heroNetMin">—</div>
+        </div>
+        <div class="lhb">
+          <div class="lhb-label">Max</div>
+          <div class="lhb-lot" id="heroLotMax">—</div>
+          <div class="lhb-net" id="heroNetMax">—</div>
+        </div>
+      </div>
+      <div class="oor" id="outOfRange">⚠ SL too tight — commission exceeds pip value at this range.</div>
+    </div>
+
+    <!-- Info tiles -->
+    <div class="tiles3">
+      <div class="tile"><div class="tile-label">$/pip</div><div class="tile-val" id="infoPerPip">—</div></div>
+      <div class="tile"><div class="tile-label">SL / TP pips</div><div class="tile-val" id="infoPips">—</div></div>
+      <div class="tile"><div class="tile-label">Net P&amp;L (win)</div><div class="tile-val" style="color:#3ecf8e" id="infoPnl">—</div></div>
+    </div>
+
+    <!-- Win rate -->
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-name">Win rate <span id="edgeBadge" class="badge bz">No edge</span></span>
+        <span class="ctrl-val" id="wrV">50%</span>
+      </div>
+      <input type="range" id="wrS" min="30" max="75" step="1" value="50">
+      <div class="range-ends"><span>30%</span><span>75%</span></div>
+    </div>
+
+    <!-- Account balance -->
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-name">Account balance ($)</span>
+        <span class="ctrl-val" id="balV">$5,000</span>
+      </div>
+      <input type="range" id="balS" min="100" max="10000" step="100" value="5000">
+      <div class="range-ends"><span>$100</span><span>$10,000</span></div>
+    </div>
+
+    <!-- Target growth — 0–50%, 1% steps -->
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-name">Target account growth % <span style="color:#3ecf8e;font-size:10px">●</span></span>
+        <span class="ctrl-val g" id="tgtV">+20%</span>
+      </div>
+      <input type="range" id="tgtS" min="0" max="50" step="1" value="20">
+      <div class="range-ends"><span>0%</span><span>50%</span></div>
+    </div>
+
+    <!-- Max loss limit — 0–50%, 1% steps -->
+    <div class="ctrl" style="margin-bottom:16px">
+      <div class="ctrl-head">
+        <span class="ctrl-name">Max loss limit % <span style="color:#f06070;font-size:10px">●</span></span>
+        <span class="ctrl-val r" id="lossV">-10%</span>
+      </div>
+      <input type="range" id="lossS" min="0" max="50" step="1" value="10">
+      <div class="range-ends"><span>0%</span><span>50%</span></div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="runSim()">Run simulation ↗</button>
+  </div>
+
+  <!-- RIGHT — Per-trade mechanics (no ground-truth box) -->
+  <div class="panel">
+    <div class="ptitle">Per-Trade Mechanics</div>
+
+    <div class="mrow"><span class="mk">Account balance</span><span class="mv" id="mBal">—</span></div>
+    <div class="mrow"><span class="mk">Win rate</span><span class="mv" id="mWR">—</span></div>
+    <div class="mrow"><span class="mk">Risk : Reward (gross)</span><span class="mv" id="mRRG">—</span></div>
+    <div class="mrow"><span class="mk">Stop loss pips</span><span class="mv" id="mSL">—</span></div>
+    <div class="mrow"><span class="mk">Take profit pips (SL × RR)</span><span class="mv" id="mTP">—</span></div>
+    <div class="mrow"><span class="mk">Calculated lot size</span><span class="mv g" id="mLot">—</span></div>
+    <hr class="div">
+    <div class="mrow"><span class="mk">Pip value (lot × $1.00/pip)</span><span class="mv" id="mPV">—</span></div>
+    <div class="mrow"><span class="mk">Gross win (TP pips × pip value)</span><span class="mv g" id="mGW">—</span></div>
+    <div class="mrow"><span class="mk">Gross loss (SL pips × pip value)</span><span class="mv r" id="mGL">—</span></div>
+    <div class="mrow"><span class="mk">Commission per trade (lot × $2.50)</span><span class="mv a" id="mComm">—</span></div>
+    <div class="mrow"><span class="mk">Net win (gross win − commission)</span><span class="mv g" id="mNW">—</span></div>
+    <div class="mrow"><span class="mk">Net loss (gross loss + commission)</span><span class="mv r" id="mNL">—</span></div>
+    <hr class="div">
+    <div class="mrow"><span class="mk">Net win % of account</span><span class="mv g" id="mNWP">—</span></div>
+    <div class="mrow"><span class="mk">Net loss % of account</span><span class="mv r" id="mNLP">—</span></div>
+    <div class="mrow"><span class="mk">Effective R:R (net win ÷ net loss)</span><span class="mv" id="mRR">—</span></div>
+    <div class="mrow"><span class="mk">Mathematical edge net of commission</span><span class="mv" id="mEdgeN">—</span></div>
+    <div class="mrow"><span class="mk">Break-even win rate (net)</span><span class="mv" id="mBEWR">—</span></div>
+    <hr class="div">
+    <div class="mrow"><span class="mk">Margin required (1:10 leverage)</span><span class="mv" id="mMG">—</span></div>
+    <div class="mrow"><span class="mk">Target balance</span><span class="mv g" id="mTgt">—</span></div>
+    <div class="mrow"><span class="mk">Ruin balance</span><span class="mv r" id="mRuin">—</span></div>
+    <div class="mrow"><span class="mk">Median trades to target</span><span class="mv" id="mTTT">—</span></div>
+  </div>
+</div>
+
+<!-- Verdict -->
+<div id="verdict" class="verdict vd"></div>
+
+<!-- 5 stat boxes -->
+<div class="stats5">
+  <div class="sbox"><div class="sl2">Hit target</div><div class="sv g" id="sHit">—</div><div class="ss">of 1,000 sims</div></div>
+  <div class="sbox"><div class="sl2">Breached limit</div><div class="sv r" id="sRuin">—</div><div class="ss">of 1,000 sims</div></div>
+  <div class="sbox"><div class="sl2">Neither</div><div class="sv" id="sNeither">—</div><div class="ss">at t=1,000</div></div>
+  <div class="sbox"><div class="sl2">P99 losing streak</div><div class="sv" id="s99">—</div><div class="ss">sizing criterion</div></div>
+  <div class="sbox"><div class="sl2">Median final return</div><div class="sv" id="sMed">—</div><div class="ss">net of commission</div></div>
+</div>
+
+<!-- Equity curves -->
+<div class="cpanel">
+  <div class="ctitle">Equity Curve Distribution — 120 sample paths (all P&L net of commission)</div>
+  <div class="legend">
+    <span class="leg"><span style="width:16px;height:2px;background:rgba(62,207,142,.65);display:inline-block;border-radius:1px"></span>Hit target</span>
+    <span class="leg"><span style="width:16px;height:2px;background:rgba(240,96,112,.55);display:inline-block;border-radius:1px"></span>Breached limit</span>
+    <span class="leg"><span style="width:16px;height:2px;background:rgba(122,134,158,.3);display:inline-block;border-radius:1px"></span>Neither</span>
+    <span class="leg"><span style="width:18px;height:0;border-top:2px dashed rgba(255,255,255,.35);display:inline-block"></span>&nbsp;Median</span>
+    <span class="leg"><span style="width:18px;height:0;border-top:2px dashed #3ecf8e;display:inline-block"></span>&nbsp;Target</span>
+    <span class="leg"><span style="width:18px;height:0;border-top:2px dashed #f06070;display:inline-block"></span>&nbsp;Loss limit</span>
+  </div>
+  <div style="position:relative;width:100%;height:280px"><canvas id="eqC"></canvas></div>
+</div>
+
+<!-- Two smaller charts -->
+<div class="two-charts">
+  <div class="cpanel" style="margin-bottom:0">
+    <div class="ctitle">Consecutive Loss Distribution</div>
+    <div style="position:relative;width:100%;height:160px"><canvas id="histC"></canvas></div>
+    <div class="legend" style="margin-top:8px;margin-bottom:0">
+      <span class="leg"><span class="ldot" style="background:#3ecf8e"></span>Normal</span>
+      <span class="leg"><span class="ldot" style="background:#f5a623"></span>P95</span>
+      <span class="leg"><span class="ldot" style="background:#f06070"></span>P99+</span>
+    </div>
+  </div>
+  <div class="cpanel" style="margin-bottom:0">
+    <div class="ctitle">Final Balance Distribution (net)</div>
+    <div style="position:relative;width:100%;height:160px"><canvas id="finalC"></canvas></div>
+    <div class="legend" style="margin-top:8px;margin-bottom:0">
+      <span class="leg"><span class="ldot" style="background:rgba(240,96,112,.7)"></span>Below start</span>
+      <span class="leg"><span class="ldot" style="background:rgba(122,134,158,.45)"></span>Above start</span>
+      <span class="leg"><span class="ldot" style="background:rgba(62,207,142,.7)"></span>Hit target</span>
+    </div>
+  </div>
+</div>
+
+<!-- Reference table — trimmed columns -->
+<div class="cpanel" style="margin-top:12px">
+  <div class="ctitle">Lot Size Reference Table · $25.00–$26.00 net win target · current RR &amp; commission</div>
+  <div style="overflow-x:auto">
+    <table class="ctbl">
+      <thead>
+        <tr>
+          <th>SL pips</th>
+          <th>Calc lot</th>
+          <th>$/pip</th>
+          <th>Commission</th>
+          <th>Net win</th>
+          <th>Net loss</th>
+          <th>Eff R:R</th>
+          <th>P99 DD $</th>
+          <th>vs limit</th>
+        </tr>
+      </thead>
+      <tbody id="cmpTB"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// VERIFIED CONSTANTS — locked from broker trade confirmation
+// $0.30/lot × 29 pips = $8.70 gross · commission $0.75 on 0.30 lots
+// → $1.00/pip/lot · $2.50/lot commission (round-turn)
+// ═══════════════════════════════════════════════════════════════════
+const PIP_PER_LOT    = 1.00;
+const COMM_PER_LOT   = 2.50;
+const MARGIN_PER_LOT = 1000;   // 1:10 leverage
+const TARGET_MID     = 25.50;
+const TARGET_MIN     = 25.00;
+const TARGET_MAX     = 26.00;
+const N_SIMS = 1000, N_TRADES = 1000;
+
+let eqInst=null, histInst=null, finalInst=null;
+
+// ── Core maths ───────────────────────────────────────────────────────
+// Lot sized so net WIN = ~$25.50
+// Net win = lot × TP_pips − lot × 2.50 = lot × (TP_pips − 2.50)
+// → lot = TARGET_MID / (TP_pips − 2.50)
+function calcLot(tpPips, target){ return (tpPips - COMM_PER_LOT) > 0 ? Math.round(target/(tpPips-COMM_PER_LOT)*100)/100 : null; }
+
+const pipVal    = l      => l * PIP_PER_LOT;
+const grossWin  = (l,tp) => pipVal(l) * tp;
+const grossLoss = (l,sl) => pipVal(l) * sl;
+const comm      = l      => l * COMM_PER_LOT;
+const netWin    = (l,tp) => grossWin(l,tp)  - comm(l);
+const netLoss   = (l,sl) => grossLoss(l,sl) + comm(l);
+const effRR     = (l,tp,sl) => netWin(l,tp) / netLoss(l,sl);
+const marginReq = l      => l * MARGIN_PER_LOT;
+
+function pctile(arr,p){ const s=[...arr].sort((a,b)=>a-b); return s[Math.min(Math.floor(p/100*s.length),s.length-1)]; }
+function pick(arr,n){ return [...arr].sort(()=>Math.random()-0.5).slice(0,n); }
+function f2(n){ return Number(n).toFixed(2); }
+function fp3(n){ return (n*100).toFixed(3)+'%'; }
+
+function getP(){
+  const rrRaw = +document.getElementById('rrS').value / 100;  // e.g. 1.10
+  const sl    = +document.getElementById('slS').value;
+  return {
+    wr:   +document.getElementById('wrS').value / 100,
+    bal:  +document.getElementById('balS').value,
+    sl,
+    rr:   rrRaw,
+    tp:   Math.round(sl * rrRaw * 10) / 10,  // TP = SL × RR, 1dp
+    tgt:  +document.getElementById('tgtS').value / 100,
+    loss: +document.getElementById('lossS').value / 100,
+  };
+}
+
+function grad(el){ el.style.setProperty('--p', ((el.value-el.min)/(el.max-el.min)*100).toFixed(1)+'%'); }
+
+// ── Update everything from sliders ───────────────────────────────────
+function updateAll(){
+  const {wr,bal,sl,rr,tp,tgt,loss} = getP();
+
+  // Slider label updates
+  document.getElementById('pipDisplay').textContent = sl;
+  document.getElementById('slV').textContent  = sl;
+  document.getElementById('rrV').textContent  = rr.toFixed(2);
+  document.getElementById('wrV').textContent  = (wr*100).toFixed(0)+'%';
+  document.getElementById('balV').textContent = '$'+Number(bal).toLocaleString('en-US');
+  document.getElementById('tgtV').textContent = '+'+document.getElementById('tgtS').value+'%';
+  document.getElementById('lossV').textContent= '-'+document.getElementById('lossS').value+'%';
+
+  // TP pip info below RR slider
+  const tpLabel = rr === 1.0 ? `TP = ${tp} pips · same as SL` : `TP = ${tp} pips · SL = ${sl} pips`;
+  document.getElementById('rrPips').textContent = tpLabel;
+  document.getElementById('infoPips').textContent = `${sl} / ${tp}`;
+
+  // Lot calculation (sized for net $25.50 on the WIN, using TP pips)
+  const lotMid = calcLot(tp, TARGET_MID);
+  const lotMin = calcLot(tp, TARGET_MIN);
+  const lotMax = calcLot(tp, TARGET_MAX);
+  const oorEl  = document.getElementById('outOfRange');
+
+  if(!lotMid || lotMid <= 0){
+    ['heroLot','heroNetMid','heroLotMin','heroLotMax','heroNetMin','heroNetMax','infoPerPip','infoPnl'].forEach(id=>document.getElementById(id).textContent='—');
+    oorEl.style.display='block';
+    clearMechanics();
+    return;
+  }
+  oorEl.style.display='none';
+
+  // Hero
+  document.getElementById('heroLot').textContent    = lotMid.toFixed(2);
+  document.getElementById('heroNetMid').textContent = '$'+f2(netWin(lotMid,tp));
+  document.getElementById('heroLotMin').textContent = (lotMin||0).toFixed(2);
+  document.getElementById('heroLotMax').textContent = (lotMax||0).toFixed(2);
+  document.getElementById('heroNetMin').textContent = '$'+f2(netWin(lotMin||0,tp));
+  document.getElementById('heroNetMax').textContent = '$'+f2(netWin(lotMax||0,tp));
+
+  // Info tiles
+  document.getElementById('infoPerPip').textContent = '$'+f2(pipVal(lotMid));
+  document.getElementById('infoPnl').textContent    = '$'+f2(netWin(lotMid,tp));
+
+  // Derived values
+  const pv   = pipVal(lotMid);
+  const co   = comm(lotMid);
+  const gw   = grossWin(lotMid, tp);
+  const gl   = grossLoss(lotMid, sl);
+  const nw   = netWin(lotMid, tp);
+  const nl   = netLoss(lotMid, sl);
+  const nwp  = nw / bal;
+  const nlp  = nl / bal;
+  const rret = effRR(lotMid, tp, sl);
+  const mg   = marginReq(lotMid);
+  const beWR = nl / (nw + nl);   // break-even win rate
+  const netEV     = wr*nw - (1-wr)*nl;
+  const netEVpct  = netEV / bal;
+
+  // Edge badge & win rate colour
+  const badge = document.getElementById('edgeBadge');
+  const wrEl  = document.getElementById('wrV');
+  if(netEVpct > 0.001){ badge.className='badge bp'; badge.textContent='Positive edge'; wrEl.className='ctrl-val g'; }
+  else if(netEVpct < -0.001){ badge.className='badge bn'; badge.textContent='Negative edge'; wrEl.className='ctrl-val r'; }
+  else{ badge.className='badge bz'; badge.textContent='No edge'; wrEl.className='ctrl-val'; }
+
+  // Mechanics panel
+  function setM(id,val,cls){ const e=document.getElementById(id); e.textContent=val; e.className='mv '+(cls||''); }
+  setM('mBal',  '$'+f2(bal));
+  setM('mWR',   (wr*100).toFixed(0)+'%');
+  setM('mRRG',  rr.toFixed(2)+':1 gross');
+  setM('mSL',   sl+' pips');
+  setM('mTP',   tp+' pips');
+  setM('mLot',  lotMid.toFixed(2)+' lots', 'g');
+  setM('mPV',   '$'+f2(pv)+'/broker-pip');
+  setM('mGW',   '$'+f2(gw)+' ('+tp+' pips × $'+f2(pv)+')', 'g');
+  setM('mGL',   '$'+f2(gl)+' ('+sl+' pips × $'+f2(pv)+')', 'r');
+  setM('mComm', '$'+f2(co)+' ('+lotMid.toFixed(2)+' × $2.50)', 'a');
+  setM('mNW',   '$'+f2(nw), 'g');
+  setM('mNL',   '$'+f2(nl), 'r');
+  setM('mNWP',  fp3(nwp)+' of account', 'g');
+  setM('mNLP',  fp3(nlp)+' of account', 'r');
+
+  const rrEl = document.getElementById('mRR');
+  rrEl.textContent = f2(rret)+':1'+(rret < 1 ? ' ⚠ net below 1:1' : ' ✓');
+  rrEl.className   = 'mv '+(rret >= 1 ? 'g' : rret >= 0.9 ? 'a' : 'r');
+
+  setM('mEdgeN', (netEVpct>=0?'+':'')+fp3(netEVpct)+'/trade ($'+(netEV>=0?'+':'')+f2(netEV)+')', netEVpct>0?'g':netEVpct<0?'r':'');
+  setM('mBEWR',  (beWR*100).toFixed(1)+'% '+(wr>=beWR?'✓ your WR beats this':'⚠ your WR below this'), wr>=beWR?'g':'r');
+  setM('mMG',    '$'+f2(mg)+' ('+(mg/bal*100).toFixed(1)+'% of account)');
+  setM('mTgt',   '$'+f2(bal*(1+tgt))+' (+'+(tgt*100).toFixed(0)+'%)', 'g');
+  setM('mRuin',  '$'+f2(bal*(1-loss))+' (-'+(loss*100).toFixed(0)+'%)', 'r');
+  // mTTT updated after sim
+}
+
+function clearMechanics(){
+  ['mBal','mWR','mRRG','mSL','mTP','mLot','mPV','mGW','mGL','mComm','mNW','mNL','mNWP','mNLP','mRR','mEdgeN','mBEWR','mMG','mTgt','mRuin','mTTT']
+    .forEach(id=>{ document.getElementById(id).textContent='—'; document.getElementById(id).className='mv'; });
+}
+
+// ── Monte Carlo ───────────────────────────────────────────────────────
+function runCore(wr, nwAbs, nlAbs, initBal, tgt, loss){
+  const results=[];
+  for(let s=0;s<N_SIMS;s++){
+    let bal=initBal, peak=initBal, maxCL=0, cl=0;
+    let hitTarget=false, breached=false, tradeHit=-1;
+    const eq=[1.0];
+    for(let t=0;t<N_TRADES;t++){
+      const win=Math.random()<wr;
+      if(win){ bal+=nwAbs; cl=0; } else { bal-=nlAbs; cl++; if(cl>maxCL)maxCL=cl; }
+      if(bal<0)bal=0;
+      if(bal>peak)peak=bal;
+      if(!hitTarget && bal>=initBal*(1+tgt)){ hitTarget=true; tradeHit=t; }
+      if(!breached  && (initBal-bal)/initBal>=loss) breached=true;
+      if(t%10===0||t===N_TRADES-1) eq.push(bal/initBal);
+    }
+    results.push({maxCL, finalNorm:bal/initBal, eq, hitTarget, breached, tradeHit});
+  }
+  return results;
+}
+
+function runSim(){
+  const {wr,bal,sl,rr,tp,tgt,loss} = getP();
+  const lotMid = calcLot(tp, TARGET_MID);
+  if(!lotMid||lotMid<=0){ alert('SL too tight — commission exceeds pip value. Widen SL.'); return; }
+
+  const nwAbs = netWin(lotMid, tp);
+  const nlAbs = netLoss(lotMid, sl);
+  const btn   = document.getElementById('runBtn');
+  btn.disabled=true; btn.textContent='Simulating 1,000,000 trade outcomes…';
+
+  setTimeout(()=>{
+    const results = runCore(wr, nwAbs, nlAbs, bal, tgt, loss);
+    const clArr   = results.map(r=>r.maxCL);
+    const p99     = pctile(clArr,99);
+    const p95     = pctile(clArr,95);
+    const hitCt   = results.filter(r=>r.hitTarget).length;
+    const ruinCt  = results.filter(r=>r.breached).length;
+    const neither = N_SIMS-hitCt-ruinCt;
+    const medNorm = pctile(results.map(r=>r.finalNorm),50);
+    const medRet  = (medNorm-1)*100;
+    const wTrades = results.filter(r=>r.hitTarget&&r.tradeHit>0).map(r=>r.tradeHit);
+    const medTrades = wTrades.length ? pctile(wTrades,50) : null;
+
+    document.getElementById('sHit').textContent    = hitCt;
+    document.getElementById('sRuin').textContent   = ruinCt;
+    document.getElementById('sNeither').textContent= neither;
+    document.getElementById('s99').textContent     = p99;
+    const medEl = document.getElementById('sMed');
+    medEl.textContent = (medRet>=0?'+':'')+medRet.toFixed(1)+'%';
+    medEl.className   = 'sv '+(medRet>=0?'g':'r');
+    document.getElementById('mTTT').textContent = medTrades ? medTrades+' trades' : 'n/a';
+
+    // Verdict
+    const hp = (hitCt/10).toFixed(0), rp = (ruinCt/10).toFixed(0);
+    const rret= effRR(lotMid,tp,sl);
+    const p99DD = (nlAbs*p99).toFixed(2);
+    const p99DDpct = (nlAbs*p99/bal*100).toFixed(2);
+    const vEl = document.getElementById('verdict');
+    vEl.style.display='block';
+
+    if(ruinCt > hitCt){
+      vEl.className='verdict vd';
+      vEl.innerHTML=`<strong>More simulations blown (${rp}%) than hitting target (${hp}%).</strong> Net R:R = ${f2(rret)}:1 at ${rr.toFixed(2)} gross RR. P99 worst streak: ${p99} losses = $${p99DD} (${p99DDpct}%). Try raising the RR slider or widening the SL.`;
+    } else if(hitCt >= ruinCt*1.4 && hitCt>350){
+      vEl.className='verdict vs';
+      vEl.innerHTML=`<strong>${hp}% of simulations hit your +${(tgt*100).toFixed(0)}% target.</strong> ${rp}% breached the −${(loss*100).toFixed(0)}% limit. Lot ${lotMid.toFixed(2)} · Net win $${f2(nwAbs)} · Net loss $${f2(nlAbs)} · Eff R:R ${f2(rret)}:1. P99 worst streak: ${p99} losses = $${p99DD} (${p99DDpct}%).`;
+    } else {
+      vEl.className='verdict vw';
+      vEl.innerHTML=`<strong>${hp}% hit target · ${rp}% breached limit.</strong> Net R:R = ${f2(rret)}:1 (gross ${rr.toFixed(2)}:1). P99 worst streak: ${p99} losses = $${p99DD} (${p99DDpct}%). ${rret<1?'Increase gross RR above 1.18 to clear net 1:1 after commission.':''}`;
+    }
+
+    drawEquity(results,tgt,loss);
+    drawHist(clArr,p95,p99);
+    drawFinal(results.map(r=>r.finalNorm),tgt,loss);
+    buildTable(wr,bal,sl,tp,loss,p99);
+    btn.disabled=false; btn.textContent='Run simulation ↗';
+  },40);
+}
+
+// ── Charts ────────────────────────────────────────────────────────────
+const gc = 'rgba(255,255,255,0.04)';
+
+function drawEquity(results,tgt,loss){
+  const ctx=document.getElementById('eqC').getContext('2d');
+  if(eqInst)eqInst.destroy();
+  const winners=results.filter(r=>r.hitTarget);
+  const ruined =results.filter(r=>r.breached);
+  const neither=results.filter(r=>!r.hitTarget&&!r.breached);
+  const sample=[...pick(winners,Math.min(40,winners.length)),...pick(ruined,Math.min(40,ruined.length)),...pick(neither,Math.min(40,neither.length))];
+  const labels=sample[0].eq.map((_,i)=>i);
+  const ds=sample.map(s=>({
+    data:s.eq.map(v=>+((v*100-100).toFixed(3))),
+    borderColor:s.hitTarget?'rgba(62,207,142,0.48)':s.breached?'rgba(240,96,112,0.42)':'rgba(122,134,158,0.22)',
+    borderWidth:1,pointRadius:0,tension:0.3
+  }));
+  const med=labels.map(i=>{const v=results.map(r=>r.eq[Math.min(i,r.eq.length-1)]);return+((pctile(v,50)*100-100).toFixed(3));});
+  ds.push({data:med,borderColor:'rgba(255,255,255,0.42)',borderWidth:2,pointRadius:0,tension:0.3,borderDash:[4,3]});
+  ds.push({data:labels.map(()=>+(tgt*100)),borderColor:'#3ecf8e',borderWidth:1.5,borderDash:[6,4],pointRadius:0});
+  ds.push({data:labels.map(()=>+(-loss*100)),borderColor:'#f06070',borderWidth:1.5,borderDash:[6,4],pointRadius:0});
+  eqInst=new Chart(ctx,{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:{duration:350},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{ticks:{font:{size:10},color:'#4a5470',callback:v=>v+'%'},grid:{color:gc},border:{color:'transparent'},title:{display:true,text:'Account return % (net of commission)',font:{size:10},color:'#4a5470'}}}}});
+}
+
+function drawHist(clArr,p95,p99){
+  const ctx=document.getElementById('histC').getContext('2d');
+  if(histInst)histInst.destroy();
+  const mx=Math.max(...clArr);
+  const bins=Array.from({length:mx+1},()=>0);
+  clArr.forEach(v=>bins[v]++);
+  const col=bins.map((_,i)=>i>p99?'#f06070':i===p99?'#f06070':i===p95?'#f5a623':'#3ecf8e');
+  histInst=new Chart(ctx,{type:'bar',data:{labels:bins.map((_,i)=>i),datasets:[{data:bins,backgroundColor:col,borderWidth:0,borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} sims`,title:c=>`${c[0].label} losses in a row`}}},scales:{x:{ticks:{font:{size:9},color:'#4a5470'},grid:{display:false},border:{color:'transparent'},title:{display:true,text:'Consecutive losses',font:{size:9},color:'#4a5470'}},y:{ticks:{font:{size:9},color:'#4a5470'},grid:{color:gc},border:{color:'transparent'},title:{display:true,text:'Count',font:{size:9},color:'#4a5470'}}}}});
+}
+
+function drawFinal(finalNorms,tgt,loss){
+  const ctx=document.getElementById('finalC').getContext('2d');
+  if(finalInst)finalInst.destroy();
+  const returns=finalNorms.map(n=>(n-1)*100);
+  const step=5;
+  const minR=Math.floor(Math.min(...returns)/step)*step;
+  const maxR=Math.ceil(Math.max(...returns)/step)*step;
+  const bins=[],labels=[],colors=[];
+  for(let r=minR;r<=maxR;r+=step){
+    labels.push(r+'%');
+    bins.push(returns.filter(v=>v>=r&&v<r+step).length);
+    const mid=r+step/2;
+    colors.push(mid<=-loss*100?'rgba(240,96,112,0.75)':mid>=tgt*100?'rgba(62,207,142,0.75)':'rgba(122,134,158,0.4)');
+  }
+  finalInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:bins,backgroundColor:colors,borderWidth:0,borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} sims`,title:c=>`Net return ${c[0].label}`}}},scales:{x:{ticks:{font:{size:9},color:'#4a5470',maxRotation:45},grid:{display:false},border:{color:'transparent'},title:{display:true,text:'Final return % (net)',font:{size:9},color:'#4a5470'}},y:{ticks:{font:{size:9},color:'#4a5470'},grid:{color:gc},border:{color:'transparent'}}}}});
+}
+
+// ── Reference table (trimmed: 9 columns only) ─────────────────────────
+function buildTable(wr, bal, currentSl, currentTp, lossLim, p99){
+  const rows=[20,25,28,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+  const rr = currentTp / currentSl;   // gross RR from current settings
+  const tb = document.getElementById('cmpTB');
+  tb.innerHTML='';
+  rows.forEach(sl=>{
+    const tp = Math.round(sl * rr * 10) / 10;   // apply same RR to each row's SL
+    const lot = calcLot(tp, TARGET_MID);
+    if(!lot||lot<=0){
+      tb.innerHTML+=`<tr><td><strong>${sl}</strong></td><td colspan="8" class="ct-m" style="font-style:italic;font-size:11px">Too tight — commission exceeds pip value</td></tr>`;
+      return;
+    }
+    const pv  = pipVal(lot);
+    const co  = comm(lot);
+    const nw  = netWin(lot,tp);
+    const nl  = netLoss(lot,sl);
+    const rret= nw/nl;
+    const mg  = marginReq(lot);
+    const p99DD = nl*p99;
+    const p99DDpct = p99DD/bal;
+    const canTrade = mg<=bal;
+    let vc,vt;
+    if(!canTrade || p99DDpct>lossLim){ vc='ct-r'; vt='Exceeds limit'; }
+    else                            { vc='ct-g'; vt='Safe'; }
+    const isSel = sl===currentSl;
+    tb.innerHTML+=`<tr${isSel?' class="sel"':''}>
+      <td><strong style="color:#c8d0de">${sl}</strong></td>
+      <td class="${isSel?'ct-g':'ct-m'}">${lot.toFixed(2)}</td>
+      <td class="ct-m">$${f2(pv)}</td>
+      <td class="ct-m">$${f2(co)}</td>
+      <td class="ct-g">$${f2(nw)}</td>
+      <td class="ct-r">$${f2(nl)}</td>
+      <td class="${rret>=1?'ct-g':rret>=0.9?'ct-a':'ct-r'}">${f2(rret)}:1</td>
+      <td>$${f2(p99DD)}</td>
+      <td class="${vc}">${vt}</td>
+    </tr>`;
+  });
+}
+
+// ── Wire sliders ──────────────────────────────────────────────────────
+['slS','rrS','wrS','balS','tgtS','lossS'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>{ grad(el); updateAll(); });
+  grad(el);
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────
+updateAll();
+runSim();
+</script>
+</body>
+</html>
